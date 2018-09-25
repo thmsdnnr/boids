@@ -1,17 +1,16 @@
 // Factors for calculating rules
 const COM_FACTOR = 0.0001 // 1
-const TOO_CLOSE_MAGNITUDE = 1000 // 2
+const TOO_CLOSE_MAGNITUDE = 100000 // 2
 const VELOCITY_MATCH_FACTOR = 0.0125 // 3
-const POSITION_MULTIPLIER = 20
-const VELOCITY_LIMIT = 0.1
+const VELOCITY_LIMIT = 2
 
-const FLINGBACK_VELOCITY = 1
+const FLINGBACK_VELOCITY = 0.2
 
-const BOID_HEIGHT = 3
-const BOID_WIDTH = 3
+const BOID_HEIGHT = 5
+const BOID_WIDTH = 5
 
-const MAX_X = 1000
-const MAX_Y = 500
+const MAX_X = 2400
+const MAX_Y = 1600
 
 function Boid (initialPosition = new V2(0, 0), initialVelocity = new V2(0, 0)) {
   this.position = initialPosition
@@ -19,16 +18,15 @@ function Boid (initialPosition = new V2(0, 0), initialVelocity = new V2(0, 0)) {
   Boid.numInstances = (Boid.numInstances || 0) + 1
   this.id = Boid.numInstances // an autoincrementing boid ID
   this.normalizePosition = function (maxX, maxY) {
-    if (this.position.x * POSITION_MULTIPLIER < 0) {
+    if (this.position.x < -25) {
       this.velocity.x = FLINGBACK_VELOCITY
-    } else if (this.position.x * POSITION_MULTIPLIER > MAX_X * POSITION_MULTIPLIER) {
+    } else if (this.position.x > MAX_X * .95) {
       this.velocity.x = -1 * FLINGBACK_VELOCITY
     }
-    if (this.position.y * POSITION_MULTIPLIER > MAX_Y * POSITION_MULTIPLIER) {
+    if (this.position.y > MAX_Y * .95) {
       this.velocity.y = -1 * FLINGBACK_VELOCITY
     } else if (
-      this.position.y * POSITION_MULTIPLIER <
-      -5 * POSITION_MULTIPLIER
+      this.position.y < -25
     ) {
       this.velocity.y = FLINGBACK_VELOCITY
     }
@@ -36,8 +34,8 @@ function Boid (initialPosition = new V2(0, 0), initialVelocity = new V2(0, 0)) {
   this.draw = function (ctx) {
     ctx.fillStyle = 'gold'
     ctx.fillRect(
-      this.position.x + BOID_WIDTH / 2 * POSITION_MULTIPLIER,
-      this.position.y + BOID_HEIGHT / 2 * POSITION_MULTIPLIER,
+      this.position.x + BOID_WIDTH / 2,
+      this.position.y + BOID_HEIGHT / 2,
       BOID_WIDTH,
       BOID_HEIGHT
     )
@@ -106,7 +104,7 @@ function updateBoidPositions (boidList) {
     boid.velocity = limitVelocity(
       boid.velocity.add(
         rule1(boid, boidList)
-          .add(rule2(boid, boidList))
+          .add(rule2(boid, boidList)).multiply(0.05)
           .add(rule3(boid, boidList))
       )
     )
@@ -128,13 +126,14 @@ function fillBoidList () {
   // Make some random boids
   let list = []
   for (var i = 0; i < BOID_START_CT; i++) {
+    let dir = Math.random() > 0.5 ? 1 : -1;
     list.push(
       new Boid(
         new V2(
-          Math.random() * POSITION_MULTIPLIER,
-          Math.random() * POSITION_MULTIPLIER,
+          MAX_X / 5 + Math.random() * 25,
+          MAX_Y / 5 + Math.random() * 25,
         ),
-          new V2(Math.random(), Math.random())
+          new V2(2 * Math.random() * dir, 2 * Math.random() * dir)
         )
       )
   }
@@ -147,19 +146,19 @@ let c
 
 function fly () {
   c = document.getElementById('birdflock')
-  c.width = '1000'
-  c.height = '900'
-  c.style.width = '500px'
-  c.style.height = '450px'
+  c.width = MAX_X
+  c.height = MAX_Y
+  const scaleFactor = window.devicePixelRatio
+  c.style.width = `${c.width / scaleFactor}px`
+  c.style.height = `${c.height / scaleFactor}px`
   ctx = c.getContext('2d')
   ctx.translate(0.5, 0.5)
-  const scaleFactor = window.devicePixelRatio
   ctx.scale(scaleFactor, scaleFactor)
   boidList = fillBoidList()
   window.requestAnimationFrame(step)
 }
 
-const fpsInterval = 1000 / 24
+const fpsInterval = 1000 / 36
 let then = Date.now()
 
 function step () {
