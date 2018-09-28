@@ -1,21 +1,49 @@
 <html>
-  <head>
-    <title>birdflock</title>
+
+<head>
+  <title>birdflock</title>
   <script src="./BOIDS.js"></script>
-  </head>
-  <style>
-    #the_sky {
-      width: 800px;
-      height: 600px;
-      border: 1px solid black;
-    }
-    canvas#birdflock {
-      width: 100%;
-      height: 100%;
-      border: 1px solid gold;
-    }
-  </style>
-  <body>
-      <canvas id="birdflock"></canvas>
-  </body>
+</head>
+<style>
+  body {
+    font-family: 'Courier New', Courier, monospace;
+  }
+
+  button {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1vw;
+  }
+
+  div#controls {
+    margin: auto;
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    font-size: 1vw;
+  }
+  #the_sky {
+    width: 800px;
+    height: 600px;
+    border: 1px solid black;
+  }
+
+  canvas#birdflock {
+    margin: auto;
+    border: 1px solid gold;
+  }
+</style>
+
+<body>
+  <canvas id="birdflock"></canvas>
+  <div id="controls">
+    Separation:
+    <input type="range" value="4" min="1" max="10" step="1" id="rule_1"> | Directional Alignment:
+    <input type="range" value="4" min="1" max="100" id="rule_2"> | Velocity Match
+    <input type="range" value="3" min="1" max="10" id="rule_3"> | Speed:
+    <input type="range" value="48" min="1" max="48" id="speed"> |
+    <button id="reset">RESET</button>
+  </div>
+</body>
+
 </html>

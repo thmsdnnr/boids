@@ -1,80 +1,82 @@
-// Factors for calculating rules
-const COM_FACTOR = 0.0001 // 1
-const TOO_CLOSE_MAGNITUDE = 100000 // 2
-const VELOCITY_MATCH_FACTOR = 0.0125 // 3
-const VELOCITY_LIMIT = 2
+// Factors for calculating rules, adjusted by sliders
+let COHESION_FACTOR = 1 / 10e10 // 1
+let TOO_CLOSE_MAGNITUDE = 1000 // 2
+let VELOCITY_MATCH_FACTOR = 0.001 // 3
+let SPEED_DENOM = 48
+let fpsInterval = 1000 / SPEED_DENOM
 
-const FLINGBACK_VELOCITY = 0.2
-
+// Constants for simulation
+const VELOCITY_LIMIT = 5
+const FLINGBACK_VELOCITY = 1
 const BOID_HEIGHT = 5
 const BOID_WIDTH = 5
+const BOID_START_CT = 100
+const scaleFactor = window.devicePixelRatio
+const MAX_X = window.innerWidth * scaleFactor - 100
+const MAX_Y = window.innerHeight * scaleFactor - 100
 
-const MAX_X = 2400
-const MAX_Y = 1600
-
+// Handlers for canvas, canvas context, and animationframe
 let c
-let forcedAvg = null
-const fpsInterval = 1000 / 36
-let then = Date.now()
+let ctx
+let boidList = []
+let animFrameHandler
 
-function Boid (initialPosition = new V2(0, 0), initialVelocity = new V2(0, 0)) {
-  this.position = initialPosition
-  this.velocity = initialVelocity
+function Boid (initialPosition, initialVelocity) {
+  this.position = initialPosition || new V2(0, 0)
+  this.velocity = initialVelocity || new V2(0, 0)
   Boid.numInstances = (Boid.numInstances || 0) + 1
-  this.id = Boid.numInstances // an autoincrementing boid ID
-  this.normalizePosition = function (maxX, maxY) {
-    if (this.position.x < -25) {
-      this.velocity.x = FLINGBACK_VELOCITY
-    } else if (this.position.x > MAX_X * 0.95) {
-      this.velocity.x = -1 * FLINGBACK_VELOCITY
+  this.id = Boid.numInstances // autoincrementing unique ID
+  this.normalizePosition = (maxX, maxY) => {
+    // If it's too far left or too far right
+    if (this.position.x < BOID_WIDTH) {
+      this.velocity.x += FLINGBACK_VELOCITY
+    } else if (this.position.x > MAX_X - BOID_WIDTH) {
+      this.velocity.x += -1 * FLINGBACK_VELOCITY
     }
-    if (this.position.y > MAX_Y * 0.95) {
-      this.velocity.y = -1 * FLINGBACK_VELOCITY
-    } else if (this.position.y < -25) {
-      this.velocity.y = FLINGBACK_VELOCITY
+    // Or too far up or too far down
+    if (this.position.y < 5 - BOID_WIDTH) {
+      this.velocity.y += FLINGBACK_VELOCITY
+    } else if (this.position.y > MAX_Y - BOID_WIDTH) {
+      this.velocity.y += -1 * FLINGBACK_VELOCITY
     }
   }
-  this.draw = function (ctx) {
+  this.draw = ctx => {
     ctx.fillStyle = 'gold'
     ctx.fillRect(
-      this.position.x + BOID_WIDTH / 2,
-      this.position.y + BOID_HEIGHT / 2,
+      (this.position.x + BOID_WIDTH / 2) / scaleFactor,
+      (this.position.y + BOID_HEIGHT / 2) / scaleFactor,
       BOID_WIDTH,
       BOID_HEIGHT
     )
   }
 }
 
-function V2 (x = 0, y = 0) {
-  this.x = x
-  this.y = y
+function V2 (x, y) {
+  // 2D vector class
+  this.x = x || 0
+  this.y = y || 0
 
-  this.add = function (addedVector) {
-    return new V2(this.x + addedVector.x, this.y + addedVector.y)
-  }
-
-  this.subtract = function (subtractedVector) {
-    return new V2(this.x - subtractedVector.x, this.y - subtractedVector.y)
-  }
-
-  this.multiply = function (magnitude) {
-    return new V2(this.x * magnitude, this.y * magnitude)
-  }
-
+  this.add = addedVector =>
+    new V2(this.x + addedVector.x, this.y + addedVector.y)
+  this.subtract = subtractedVector =>
+    new V2(this.x - subtractedVector.x, this.y - subtractedVector.y)
+  this.multiply = magnitude => new V2(this.x * magnitude, this.y * magnitude)
   this.magnitude = () => Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2))
 }
 
 function rule1 (boid, boidList) {
+  // Boids try to align themselves with the average position of the flock
   let theOtherBoids = boidList.filter(boidId => boid.id != boidId.id)
   let avgPosition = new V2()
   theOtherBoids.forEach(boid => (avgPosition = avgPosition.add(boid.position)))
   return avgPosition
     .multiply(1 / theOtherBoids.length)
     .subtract(boid.position)
-    .multiply(COM_FACTOR)
+    .multiply(COHESION_FACTOR)
 }
 
 function rule2 (boid, boidList) {
+  // Boids try to maintain a minimum distance between themselves and others
   let newPositionVector = new V2()
   boidList
     .filter(boidId => boid.id !== boidId.id)
@@ -91,6 +93,7 @@ function rule2 (boid, boidList) {
 }
 
 function rule3 (boid, boidList) {
+  // Boids try to match their velocity with that of the flock
   return boidList
     .filter(boidId => boid.id !== boidId.id)
     .map(otherBoid => otherBoid.velocity)
@@ -108,32 +111,30 @@ function updateBoidPositions (boidList) {
       boid.velocity.add(
         rule1(boid, boidList)
           .add(rule2(boid, boidList))
-          .multiply(0.05)
           .add(rule3(boid, boidList))
       )
     )
+    // Add the calculated ∆velocity to get the new position
     boid.position = boid.position.add(boid.velocity)
+    // Make sure we aren't making the boids go off into the ether
     boid.normalizePosition(MAX_X, MAX_Y)
   })
 }
 
-function drawSelf (boidList, ctx) {
-  boidList.forEach(boid => boid.draw(ctx))
-}
-
-const BOID_START_CT = 100
-
-let boidList = []
-let ctx
+const drawBoidList = (boidList, ctx) => boidList.forEach(boid => boid.draw(ctx))
 
 function fillBoidList () {
   // Make some random boids
   let list = []
   for (var i = 0; i < BOID_START_CT; i++) {
+    // Give a little randomization
+    // TODO: would be cool to cast them off equally in all directions
+    // as though away from the center of a circle, e.g., boidCt / 360
+    // each one every 3.6 degrees difference
     let dir = Math.random() > 0.5 ? 1 : -1
     list.push(
       new Boid(
-        new V2(MAX_X / 5 + Math.random() * 25, MAX_Y / 5 + Math.random() * 25),
+        new V2(MAX_X / 2 + Math.random() * 25, MAX_Y / 2 + Math.random() * 25),
         new V2(2 * Math.random() * dir, 2 * Math.random() * dir)
       )
     )
@@ -141,21 +142,50 @@ function fillBoidList () {
   return list
 }
 
-document.addEventListener('DOMContentLoaded', fly)
-
-function fly () {
+function setUpWindow () {
+  // Listen to the button and sliders
+  document
+    .getElementById('reset')
+    .addEventListener('click', resetBoidsAndStartAnimationFrames)
+  document.getElementById('rule_1').addEventListener('change', e => {
+    COHESION_FACTOR = 1 / Math.pow(10, e.target.value)
+  })
+  document.getElementById('rule_2').addEventListener('change', e => {
+    TOO_CLOSE_MAGNITUDE = Math.pow(10, e.target.value)
+  })
+  document.getElementById('rule_3').addEventListener('change', e => {
+    VELOCITY_MATCH_FACTOR = 1 / Math.pow(10, e.target.value)
+  })
+  document.getElementById('speed').addEventListener('change', e => {
+    SPEED_DENOM = e.target.value
+    fpsInterval = 1000 / SPEED_DENOM
+  })
+  // Set up the screen
   c = document.getElementById('birdflock')
   c.width = MAX_X
   c.height = MAX_Y
-  const scaleFactor = window.devicePixelRatio
   c.style.width = `${c.width / scaleFactor}px`
   c.style.height = `${c.height / scaleFactor}px`
   ctx = c.getContext('2d')
   ctx.translate(0.5, 0.5)
   ctx.scale(scaleFactor, scaleFactor)
-  boidList = fillBoidList()
-  window.requestAnimationFrame(step)
 }
+
+function resetBoidsAndStartAnimationFrames () {
+  if (animFrameHandler) {
+    window.cancelAnimationFrame(animFrameHandler)
+  }
+  boidList = fillBoidList()
+  animFrameHandler = window.requestAnimationFrame(step)
+}
+
+function fly () {
+  setUpWindow()
+  resetBoidsAndStartAnimationFrames()
+}
+
+// How to know if we should draw in the next frame we're given
+let then = Date.now()
 
 function step () {
   window.requestAnimationFrame(step)
@@ -169,5 +199,8 @@ function step () {
   ctx.fillStyle = 'black'
   ctx.fillRect(0, 0, c.width, c.height)
   updateBoidPositions(boidList)
-  drawSelf(boidList, ctx)
+  drawBoidList(boidList, ctx)
 }
+
+// Kick off the simulation
+document.addEventListener('DOMContentLoaded', fly)
