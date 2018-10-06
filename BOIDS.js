@@ -1,12 +1,12 @@
 // Factors for calculating rules, adjusted by sliders
-let COHESION_FACTOR = 1 / 10e10 // 1
-let TOO_CLOSE_MAGNITUDE = 1000 // 2
-let VELOCITY_MATCH_FACTOR = 0.001 // 3
+let COHESION_FACTOR = 1 / 10e3 // 1
+let TOO_CLOSE_MAGNITUDE = 10e2 // 2
+let VELOCITY_MATCH_FACTOR = 10e-3 // 3
 let SPEED_DENOM = 48
 let fpsInterval = 1000 / SPEED_DENOM
 
 // Constants for simulation
-const VELOCITY_LIMIT = 5
+const VELOCITY_LIMIT = 10
 const FLINGBACK_VELOCITY = 1
 const BOID_HEIGHT = 5
 const BOID_WIDTH = 5
@@ -103,7 +103,7 @@ function rule3 (boid, boidList) {
 }
 
 const limitVelocity = v =>
-  (v.magnitude > VELOCITY_LIMIT ? v / v.magnitude * VELOCITY_LIMIT : v)
+  (v.magnitude() > VELOCITY_LIMIT ? v.multiply(1 / (v.magnitude() * VELOCITY_LIMIT)) : v)
 
 function updateBoidPositions (boidList) {
   boidList.forEach(boid => {
@@ -128,14 +128,11 @@ function fillBoidList () {
   let list = []
   for (var i = 0; i < BOID_START_CT; i++) {
     // Give a little randomization
-    // TODO: would be cool to cast them off equally in all directions
-    // as though away from the center of a circle, e.g., boidCt / 360
-    // each one every 3.6 degrees difference
     let dir = Math.random() > 0.5 ? 1 : -1
     list.push(
       new Boid(
         new V2(MAX_X / 2 + Math.random() * 25, MAX_Y / 2 + Math.random() * 25),
-        new V2(2 * Math.random() * dir, 2 * Math.random() * dir)
+        new V2(5 * Math.random() * dir, 5 * Math.random() * dir)
       )
     )
   }
